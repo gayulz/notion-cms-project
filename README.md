@@ -282,9 +282,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 문의
 
 - **작성자**: gayul.kim
-- **이메일**: [your-email@example.com](mailto:your-email@example.com)
-- **블로그**: [your-blog-url.com](https://your-blog-url.com)
-- **GitHub**: [@YOUR_USERNAME](https://github.com/YOUR_USERNAME)
+- **이메일**: [gayulz@kakao.com](gayulz@kakao.com)
+- **블로그**: [https://yurizzy.tistory.com/](https://yurizzy.tistory.com/)
+- **GitHub**: [@gayulz](https://github.com/gayulz)
 
 ---
 
