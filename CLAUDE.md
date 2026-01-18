@@ -11,10 +11,15 @@
 - **UI Components**: Radix UI + Lucide Icons
 - **Development**: ESLint + Prettier + Husky + lint-staged
 
+## 📋 Project Context
+
+프로젝트의 핵심 문서들입니다. 개발 시작 전 반드시 참고하세요.
+
+- **📋 PRD 문서**: `@/docs/PRD.md` - 프로젝트 요구사항 정의서
+- **🗺️ 개발 로드맵**: `@/docs/ROADMAP.md` - 단계별 개발 계획 및 체크리스트
+
 ## 📚 개발 가이드
 
-- **🗺️ 개발 로드맵**: `@/docs/ROADMAP.md`
-- **📋 프로젝트 요구사항**: `@/docs/PRD.md`
 - **📁 프로젝트 구조**: `@/docs/guides/project-structure.md`
 - **🎨 스타일링 가이드**: `@/docs/guides/styling-guide.md`
 - **🧩 컴포넌트 패턴**: `@/docs/guides/component-patterns.md`
