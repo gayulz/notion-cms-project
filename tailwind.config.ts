@@ -1,0 +1,139 @@
+/** @type {import('tailwindcss').Config} */
+import type { Config } from 'tailwindcss'
+import plugin from 'tailwindcss/plugin'
+import tailwindcssAnimate from 'tailwindcss-animate'
+
+const config = {
+  darkMode: ['class'],
+  content: [
+    './pages/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}',
+  ],
+  prefix: '',
+  theme: {
+    container: {
+      center: true,
+      padding: '2rem',
+      screens: {
+        '2xl': '1400px',
+      },
+    },
+    extend: {
+      colors: {
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+      },
+      // Custom fonts for the project (example)
+      fontFamily: {
+        sans: ['"Inter"', 'sans-serif'], // Example: Using Inter font
+        // Add more custom fonts here if needed
+      },
+    },
+  },
+  plugins: [
+    // Custom plugin to add CSS variables for shadcn/ui theming
+    plugin(function ({ addBase }) {
+      addBase({
+        ':root': {
+          '--background': '222.2 84% 4.9%',
+          '--foreground': '210 20% 98%',
+          '--card': '222.2 84% 4.9%',
+          '--card-foreground': '210 20% 98%',
+          '--popover': '222.2 84% 4.9%',
+          '--popover-foreground': '210 20% 98%',
+          '--primary': '217.2 91.2% 59.8%',
+          '--primary-foreground': '222.2 47.4% 11.2%',
+          '--secondary': '217.2 32.4% 17.6%',
+          '--secondary-foreground': '210 20% 98%',
+          '--muted': '217.2 32.4% 17.6%',
+          '--muted-foreground': '215 20.4% 65.0%',
+          '--accent': '217.2 32.4% 17.6%',
+          '--accent-foreground': '210 20% 98%',
+          '--destructive': '0 62.8% 30.6%',
+          '--destructive-foreground': '210 20% 98%',
+          '--border': '217.2 32.4% 17.6%',
+          '--input': '217.2 32.4% 17.6%',
+          '--ring': '217.2 91.2% 59.8%',
+          '--radius': '0.5rem',
+        },
+        '.dark': {
+          // Define dark mode variables, this might need to be adjusted based on actual shadcn/ui theme setup
+          '--background': '0 0% 100%',
+          '--foreground': '222.2 47.4% 11.2%',
+          '--card': '0 0% 100%',
+          '--card-foreground': '222.2 47.4% 11.2%',
+          '--popover': '0 0% 100%',
+          '--popover-foreground': '222.2 47.4% 11.2%',
+          '--primary': '217.2 91.2% 59.8%',
+          '--primary-foreground': '222.2 47.4% 11.2%',
+          '--secondary': '210 40% 96.1%',
+          '--secondary-foreground': '222.2 47.4% 11.2%',
+          '--muted': '210 40% 96.1%',
+          '--muted-foreground': '215.4 16.3% 46.9%',
+          '--accent': '210 40% 96.1%',
+          '--accent-foreground': '222.2 47.4% 11.2%',
+          '--destructive': '0 84.2% 60.2%',
+          '--destructive-foreground': '210 20% 98%',
+          '--border': '217.2 32.4% 17.6%',
+          '--input': '217.2 32.4% 17.6%',
+          '--ring': '217.2 91.2% 59.8%',
+        },
+      })
+    }),
+    tailwindcssAnimate,
+  ],
+} satisfies Config
+
+export default config

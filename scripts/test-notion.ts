@@ -1,73 +1,112 @@
-/**
- * Notion API 연결 테스트 스크립트
- * @author gayul.kim
- * @since 2026-01-17
- */
+// [NEW] Notion API 연결 테스트 스크립트
+// @author gayul.kim
+// @since 2026-01-18
 
-import dotenv from "dotenv";
-import { getPosts } from "../src/lib/notion";
+import 'dotenv/config' // 환경 변수 로드
 
-// .env.local 파일 로드
-dotenv.config({ path: ".env.local" });
+import { Client } from '@notionhq/client'
+import { env } from '../src/lib/env'
+import { Post } from '../src/types/notion'
 
 async function testNotionConnection() {
-	console.log("🔍 Notion API 연결 테스트 시작...\n");
+  console.log('Notion API 연결 테스트를 시작합니다...')
 
-	try {
-		// 환경 변수 확인
-		console.log("✅ 환경 변수 확인:");
-		console.log(
-			`  - NOTION_API_KEY: ${process.env.NOTION_API_KEY ? "설정됨" : "❌ 설정되지 않음"}`
-		);
-		console.log(
-			`  - NOTION_DATABASE_ID: ${process.env.NOTION_DATABASE_ID ? "설정됨" : "❌ 설정되지 않음"}`
-		);
-		console.log();
+  const notion = new Client({
+    auth: env.NOTION_API_KEY,
+  })
 
-		// 블로그 글 목록 가져오기
-		console.log("📚 발행된 블로그 글 목록 가져오기...");
-		const posts = await getPosts();
+  try {
+    const response = await notion.databases.query({
+      database_id: env.NOTION_DATABASE_ID,
+      filter: {
+        property: 'Status',
+        select: {
+          equals: '발행됨', // 'Published' 상태의 게시물만 가져오도록 필터링
+        },
+      },
+      sorts: [
+        {
+          property: 'Published',
+          direction: 'descending',
+        },
+      ],
+    })
 
-		console.log(`\n✅ 성공! 총 ${posts.length}개의 글을 찾았습니다.\n`);
+    if (response.results.length === 0) {
+      console.log(
+        'Notion 데이터베이스에 "발행됨" 상태의 게시물이 없습니다. 샘플 데이터를 확인해주세요.'
+      )
+      return
+    }
 
-		// 글 목록 출력
-		if (posts.length > 0) {
-			console.log("📝 글 목록:");
-			posts.forEach((post, index) => {
-				console.log(`\n${index + 1}. ${post.title}`);
-				console.log(`   - ID: ${post.id}`);
-				console.log(`   - 카테고리: ${post.category}`);
-				console.log(`   - 태그: ${post.tags.join(", ") || "없음"}`);
-				console.log(`   - 발행일: ${post.published}`);
-				console.log(`   - 슬러그: ${post.slug}`);
-				console.log(`   - 요약: ${post.summary || "없음"}`);
-			});
-		} else {
-			console.log(
-				'⚠️  발행된 글이 없습니다. Notion 데이터베이스에서 Status를 "발행됨"으로 설정하세요.'
-			);
-		}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const posts: Post[] = response.results.map((page: any) => {
+      const properties = page.properties
+      const title = properties.Title?.title[0]?.plain_text || '제목 없음'
+      const category = properties.Category?.select?.name || '카테고리 없음'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tags =
+        properties.Tags?.multi_select.map((tag: any) => tag.name) || []
+      const published = properties.Published?.date?.start || '날짜 없음'
+      const slug = properties.Slug?.rich_text[0]?.plain_text || '슬러그 없음'
+      const thumbnail =
+        properties.Thumbnail?.files[0]?.file?.url ||
+        properties.Thumbnail?.files[0]?.external?.url ||
+        undefined
+      const summary = properties.Summary?.rich_text[0]?.plain_text || undefined
 
-		console.log("\n✅ Notion API 연결 테스트 완료!\n");
-	} catch (error) {
-		console.error("\n❌ 오류 발생:");
-		if (error instanceof Error) {
-			console.error(`  - 메시지: ${error.message}`);
-			console.error(`  - 스택: ${error.stack}`);
-		} else {
-			console.error(error);
-		}
-		console.log("\n💡 문제 해결 방법:");
-		console.log("  1. .env.local 파일이 존재하는지 확인");
-		console.log("  2. NOTION_API_KEY가 올바른지 확인");
-		console.log("  3. NOTION_DATABASE_ID가 올바른지 확인");
-		console.log(
-			"  4. Notion Integration이 데이터베이스에 연결되어 있는지 확인"
-		);
-		console.log("  5. 인터넷 연결 상태 확인\n");
-		process.exit(1);
-	}
+      return {
+        id: page.id,
+        title,
+        category,
+        tags,
+        published,
+        slug,
+        thumbnail,
+        summary,
+      }
+    })
+
+    console.log('--- Notion 데이터베이스 연결 성공 ---')
+    console.log(`총 ${posts.length}개의 게시물을 찾았습니다.`)
+    posts.forEach((post, index) => {
+      console.log(`
+게시물 ${index + 1}:`)
+      console.log(`  ID: ${post.id}`)
+      console.log(`  제목: ${post.title}`)
+      console.log(`  카테고리: ${post.category}`)
+      console.log(`  태그: ${post.tags.join(', ')}`)
+      console.log(`  발행일: ${post.published}`)
+      console.log(`  슬러그: ${post.slug}`)
+      if (post.thumbnail) console.log(`  썸네일: ${post.thumbnail}`)
+      if (post.summary) console.log(`  요약: ${post.summary}`)
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error('Notion API 연결 중 오류가 발생했습니다:')
+    if (error.code === 'unauthorized') {
+      console.error('  에러 코드: unauthorized (401)')
+      console.error(
+        '  메시지: Notion API 키가 유효하지 않거나 데이터베이스 접근 권한이 없습니다.'
+      )
+      console.error(
+        '  `.env.local` 파일의 `NOTION_API_KEY`를 확인하거나, Notion 인티그레이션에 데이터베이스 접근 권한을 부여했는지 확인해주세요.'
+      )
+    } else if (error.code === 'validation_error') {
+      console.error('  에러 코드: validation_error')
+      console.error(
+        '  메시지: Notion API 요청 파라미터가 유효하지 않습니다. `NOTION_DATABASE_ID`가 올바른지, 데이터베이스 속성 이름이 로드맵과 일치하는지 확인해주세요.'
+      )
+      console.error(`  자세한 내용: ${error.message}`)
+    } else {
+      console.error(`  예상치 못한 에러: ${error.message}`)
+      console.error(
+        '  Notion 개발자 문서를 참조하거나 Notion 설정(API 키, 데이터베이스 ID, 권한 등)을 다시 확인해주세요.'
+      )
+    }
+  }
+  console.log('\nNotion API 연결 테스트를 완료합니다.')
 }
 
-// 스크립트 실행
-testNotionConnection();
+testNotionConnection()

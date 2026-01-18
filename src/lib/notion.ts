@@ -4,73 +4,149 @@
  * @since 2026-01-17
  */
 
-import { Client } from "@notionhq/client";
-import { NotionToMarkdown } from "notion-to-md";
-import type { BlogPost, NotionPage } from "@/types/notion";
+import { Client } from '@notionhq/client'
+import { NotionToMarkdown } from 'notion-to-md'
+import type { BlogPost, NotionPage } from '@/types/notion'
 
 // 환경 변수 가져오기
 const getNotionConfig = () => {
-	const NOTION_API_KEY = process.env.NOTION_API_KEY;
-	const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
+  const NOTION_API_KEY = process.env.NOTION_API_KEY
+  const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID
 
-	if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
-		throw new Error(
-			"환경 변수가 설정되지 않았습니다. .env.local 파일을 확인하세요."
-		);
-	}
+  if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
+    throw new Error(
+      '환경 변수가 설정되지 않았습니다. .env.local 파일을 확인하세요.'
+    )
+  }
 
-	return { NOTION_API_KEY, NOTION_DATABASE_ID };
-};
+  return { NOTION_API_KEY, NOTION_DATABASE_ID }
+}
 
 // Notion 클라이언트 초기화 (lazy initialization)
-let notionClient: Client | null = null;
-let n2mClient: NotionToMarkdown | null = null;
+let notionClient: Client | null = null
+let n2mClient: NotionToMarkdown | null = null
 
 export const getNotionClient = () => {
-	if (!notionClient) {
-		const { NOTION_API_KEY } = getNotionConfig();
-		notionClient = new Client({ auth: NOTION_API_KEY });
-	}
-	return notionClient;
-};
+  if (!notionClient) {
+    const { NOTION_API_KEY } = getNotionConfig()
+    notionClient = new Client({ auth: NOTION_API_KEY })
+  }
+  return notionClient
+}
 
 export const getN2M = () => {
-	if (!n2mClient) {
-		const client = getNotionClient(); // 클라이언트 초기화
-		n2mClient = new NotionToMarkdown({ notionClient: client });
-	}
-	return n2mClient!;
-};
+  if (!n2mClient) {
+    const client = getNotionClient() // 클라이언트 초기화
+    n2mClient = new NotionToMarkdown({ notionClient: client })
+  }
+  return n2mClient!
+}
+
+/**
+ * [MIG] Notion 페이지의 콘텐츠를 Markdown 문자열로 변환합니다.
+ * @author gayul.kim
+ * @since 2026-01-18
+ * @param pageId - Notion 페이지 ID
+ * @returns 페이지 콘텐츠의 Markdown 문자열 또는 null
+ */
+export async function getMarkdownContent(
+  pageId: string
+): Promise<string | null> {
+  try {
+    const n2m = getN2M()
+    const mdBlocks = await n2m.pageToMarkdown(pageId)
+    const mdString = n2m.toMarkdownString(mdBlocks)
+    return mdString.parent
+  } catch (error) {
+    console.error(
+      `Notion API 오류 (Markdown 콘텐츠 변환): 페이지 ID ${pageId}):`,
+      error
+    )
+    return null
+  }
+}
 
 /**
  * 발행된 블로그 글 목록 가져오기
  * @returns 발행된 블로그 글 배열
  */
 export async function getPosts(): Promise<BlogPost[]> {
-	try {
-		const notion = getNotionClient();
-		const { NOTION_DATABASE_ID } = getNotionConfig();
-		const response = await notion.databases.query({
-			database_id: NOTION_DATABASE_ID,
-			filter: {
-				property: "Status",
-				select: {
-					equals: "발행됨",
-				},
-			},
-			sorts: [
-				{
-					property: "Published",
-					direction: "descending",
-				},
-			],
-		});
+  try {
+    const notion = getNotionClient()
+    const { NOTION_DATABASE_ID } = getNotionConfig()
+    const response = await notion.databases.query({
+      database_id: NOTION_DATABASE_ID,
+      filter: {
+        property: 'Status',
+        select: {
+          equals: 'Published',
+        },
+      },
+      sorts: [
+        {
+          property: 'Published',
+          direction: 'descending',
+        },
+      ],
+    })
 
-		return response.results.map((page) => convertNotionPageToBlogPost(page as NotionPage));
-	} catch (error) {
-		console.error("Notion API 오류:", error);
-		throw new Error("블로그 글 목록을 가져오는데 실패했습니다.");
-	}
+    return response.results.map(page =>
+      convertNotionPageToBlogPost(page as NotionPage)
+    )
+  } catch (error) {
+    console.error('Notion API 오류:', error)
+    throw new Error('블로그 글 목록을 가져오는데 실패했습니다.')
+  }
+}
+
+/**
+ * 특정 카테고리에 해당하는 발행된 블로그 글 목록 가져오기
+ * @author gayul.kim
+ * @since 2026-01-18
+ * @param category - 글 카테고리
+ * @returns 특정 카테고리에 속하는 발행된 블로그 글 배열
+ */
+export async function getPostsByCategory(
+  category: string
+): Promise<BlogPost[]> {
+  try {
+    const notion = getNotionClient()
+    const { NOTION_DATABASE_ID } = getNotionConfig()
+    const response = await notion.databases.query({
+      database_id: NOTION_DATABASE_ID,
+      filter: {
+        and: [
+          {
+            property: 'Status',
+            select: {
+              equals: 'Published',
+            },
+          },
+          {
+            property: 'Category',
+            select: {
+              equals: category,
+            },
+          },
+        ],
+      },
+      sorts: [
+        {
+          property: 'Published',
+          direction: 'descending',
+        },
+      ],
+    })
+
+    return response.results.map(page =>
+      convertNotionPageToBlogPost(page as NotionPage)
+    )
+  } catch (error) {
+    console.error(`Notion API 오류 (카테고리: ${category}):`, error)
+    throw new Error(
+      `카테고리 "${category}"의 블로그 글 목록을 가져오는데 실패했습니다.`
+    )
+  }
 }
 
 /**
@@ -79,47 +155,47 @@ export async function getPosts(): Promise<BlogPost[]> {
  * @returns 블로그 글 또는 null
  */
 export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
-	try {
-		const notion = getNotionClient();
-		const n2m = getN2M();
-		const { NOTION_DATABASE_ID } = getNotionConfig();
-		const response = await notion.databases.query({
-			database_id: NOTION_DATABASE_ID,
-			filter: {
-				and: [
-					{
-						property: "Status",
-						select: {
-							equals: "발행됨",
-						},
-					},
-					{
-						property: "Slug",
-						rich_text: {
-							equals: slug,
-						},
-					},
-				],
-			},
-		});
+  try {
+    const notion = getNotionClient()
+    const { NOTION_DATABASE_ID } = getNotionConfig()
+    const response = await notion.databases.query({
+      database_id: NOTION_DATABASE_ID,
+      filter: {
+        and: [
+          {
+            property: 'Status',
+            select: {
+              equals: 'Published',
+            },
+          },
+          {
+            property: 'Slug',
+            rich_text: {
+              equals: slug,
+            },
+          },
+        ],
+      },
+    })
 
-		if (response.results.length === 0) {
-			return null;
-		}
+    if (response.results.length === 0) {
+      return null
+    }
 
-		const page = response.results[0] as NotionPage;
-		const post = convertNotionPageToBlogPost(page);
+    const page = response.results[0] as NotionPage
+    const post = convertNotionPageToBlogPost(page)
 
-		// 본문 콘텐츠 가져오기
-		const mdBlocks = await n2m.pageToMarkdown(page.id);
-		const mdString = n2m.toMarkdownString(mdBlocks);
-		post.content = mdString.parent;
+    // [MIGRATION_OLD] 본문 콘텐츠 가져오기
+    // [MIGRATION_OLD] const mdBlocks = await n2m.pageToMarkdown(page.id);
+    // [MIGRATION_OLD] const mdString = n2m.toMarkdownString(mdBlocks);
+    // [MIGRATION_OLD] post.content = mdString.parent;
+    post.content = await getMarkdownContent(page.id)
 
-		return post;
-	} catch (error) {
-		console.error("Notion API 오류:", error);
-		throw new Error("블로그 글을 가져오는데 실패했습니다.");
-	}
+    return post
+  } catch (error) {
+    console.error('Notion API 오류:', error)
+    throw new Error('블로그 글을 가져오는데 실패했습니다.')
+  }
 }
 
 /**
@@ -128,22 +204,22 @@ export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
  * @returns 블로그 글 또는 null
  */
 export async function getPostById(id: string): Promise<BlogPost | null> {
-	try {
-		const notion = getNotionClient();
-		const n2m = getN2M();
-		const page = await notion.pages.retrieve({ page_id: id });
-		const post = convertNotionPageToBlogPost(page as unknown as NotionPage);
+  try {
+    const notion = getNotionClient()
+    const page = await notion.pages.retrieve({ page_id: id })
+    const post = convertNotionPageToBlogPost(page as unknown as NotionPage)
 
-		// 본문 콘텐츠 가져오기
-		const mdBlocks = await n2m.pageToMarkdown(id);
-		const mdString = n2m.toMarkdownString(mdBlocks);
-		post.content = mdString.parent;
+    // [MIGRATION_OLD] 본문 콘텐츠 가져오기
+    // [MIGRATION_OLD] const mdBlocks = await n2m.pageToMarkdown(id);
+    // [MIGRATION_OLD] const mdString = n2m.toMarkdownString(mdBlocks);
+    // [MIGRATION_OLD] post.content = mdString.parent;
+    post.content = await getMarkdownContent(id)
 
-		return post;
-	} catch (error) {
-		console.error("Notion API 오류:", error);
-		return null;
-	}
+    return post
+  } catch (error) {
+    console.error('Notion API 오류:', error)
+    return null
+  }
 }
 
 /**
@@ -151,33 +227,33 @@ export async function getPostById(id: string): Promise<BlogPost | null> {
  * @returns 슬러그 배열
  */
 export async function getAllPostSlugs(): Promise<string[]> {
-	try {
-		const notion = getNotionClient();
-		const { NOTION_DATABASE_ID } = getNotionConfig();
-		const response = await notion.databases.query({
-			database_id: NOTION_DATABASE_ID,
-			filter: {
-				property: "Status",
-				select: {
-					equals: "발행됨",
-				},
-			},
-		});
+  try {
+    const notion = getNotionClient()
+    const { NOTION_DATABASE_ID } = getNotionConfig()
+    const response = await notion.databases.query({
+      database_id: NOTION_DATABASE_ID,
+      filter: {
+        property: 'Status',
+        select: {
+          equals: '발행됨',
+        },
+      },
+    })
 
-		return response.results
-			.map((page) => {
-				const notionPage = page as NotionPage;
-				const slugProperty = notionPage.properties.Slug;
-				if (slugProperty && slugProperty.rich_text.length > 0) {
-					return slugProperty.rich_text[0].plain_text;
-				}
-				return null;
-			})
-			.filter((slug): slug is string => slug !== null);
-	} catch (error) {
-		console.error("Notion API 오류:", error);
-		return [];
-	}
+    return response.results
+      .map(page => {
+        const notionPage = page as NotionPage
+        const slugProperty = notionPage.properties.Slug
+        if (slugProperty && slugProperty.rich_text.length > 0) {
+          return slugProperty.rich_text[0].plain_text
+        }
+        return null
+      })
+      .filter((slug): slug is string => slug !== null)
+  } catch (error) {
+    console.error('Notion API 오류:', error)
+    return []
+  }
 }
 
 /**
@@ -186,49 +262,46 @@ export async function getAllPostSlugs(): Promise<string[]> {
  * @returns BlogPost 객체
  */
 function convertNotionPageToBlogPost(page: NotionPage): BlogPost {
-	const properties = page.properties;
+  const properties = page.properties
 
-	// 제목 추출
-	const title =
-		properties.Title?.title[0]?.plain_text || "제목 없음";
+  // 제목 추출
+  const title = properties.Title?.title[0]?.plain_text || '제목 없음'
 
-	// 카테고리 추출
-	const category = properties.Category?.select?.name || "미분류";
+  // 카테고리 추출
+  const category = properties.Category?.select?.name || '미분류'
 
-	// 태그 추출
-	const tags =
-		properties.Tags?.multi_select.map((tag) => tag.name) || [];
+  // 태그 추출
+  const tags = properties.Tags?.multi_select.map(tag => tag.name) || []
 
-	// 발행일 추출
-	const published =
-		properties.Published?.date?.start || new Date().toISOString();
+  // 발행일 추출
+  const published =
+    properties.Published?.date?.start || new Date().toISOString()
 
-	// 상태 추출
-	const status =
-		(properties.Status?.select?.name as "초안" | "발행됨") || "초안";
+  // 상태 추출
+  const status =
+    (properties.Status?.select?.name as '초안' | '발행됨') || '초안'
 
-	// 슬러그 추출 (없으면 제목을 kebab-case로 변환)
-	const slug =
-		properties.Slug?.rich_text[0]?.plain_text ||
-		title
-			.toLowerCase()
-			.replace(/\s+/g, "-")
-			.replace(/[^a-z0-9-]/g, "");
+  // 슬러그 추출 (없으면 제목을 kebab-case로 변환)
+  const slug =
+    properties.Slug?.rich_text[0]?.plain_text ||
+    title
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
 
-	// 요약 추출
-	const summary =
-		properties.Summary?.rich_text[0]?.plain_text || "";
+  // 요약 추출
+  const summary = properties.Summary?.rich_text[0]?.plain_text || ''
 
-	return {
-		id: page.id,
-		title,
-		category,
-		tags,
-		published,
-		status,
-		slug,
-		summary,
-		createdAt: page.created_time,
-		updatedAt: page.last_edited_time,
-	};
+  return {
+    id: page.id,
+    title,
+    category,
+    tags,
+    published,
+    status,
+    slug,
+    summary,
+    createdAt: page.created_time,
+    updatedAt: page.last_edited_time,
+  }
 }
