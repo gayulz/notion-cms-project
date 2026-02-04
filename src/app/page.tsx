@@ -5,9 +5,9 @@
  * @author gayul.kim
  * @since 2026-01-18
  */
-import type { Metadata } from 'next'
+import { PostList } from '@/components/PostList'
 import { getPosts } from '@/lib/notion'
-import { PostCard } from '@/components/PostCard'
+import type { Metadata } from 'next'
 
 // 60초마다 페이지를 재생성합니다 (ISR)
 export const revalidate = 60
@@ -22,12 +22,17 @@ export default async function HomePage() {
   const posts = await getPosts()
 
   return (
-    <section className="container grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {posts.length > 0 ? (
-        posts.map(post => <PostCard key={post.id} post={post} />)
-      ) : (
-        <p className="col-span-full text-center">게시물이 없습니다.</p>
-      )}
+    <section className="container py-8">
+      <div className="mb-8 text-center">
+        <h1 className="mb-4 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+          Latest Posts
+        </h1>
+        <p className="text-lg text-gray-600 dark:text-gray-300">
+          개발 경험과 지식을 공유합니다.
+        </p>
+      </div>
+
+      <PostList initialPosts={posts} />
     </section>
   )
 }

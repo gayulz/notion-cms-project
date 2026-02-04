@@ -80,7 +80,7 @@ export async function getPosts(): Promise<Post[]> {
       filter: {
         property: 'Status',
         status: {
-          equals: '발행됨',
+          equals: 'Published',
         },
       },
       sorts: [
@@ -118,7 +118,7 @@ export async function getPostsByCategory(category: string): Promise<Post[]> {
           {
             property: 'Status',
             status: {
-              equals: '발행됨',
+              equals: 'Published',
             },
           },
           {
@@ -164,7 +164,7 @@ export async function getPostBySlug(slug: string): Promise<PostContent | null> {
           {
             property: 'Status',
             status: {
-              equals: '발행됨',
+              equals: 'Published',
             },
           },
           {
@@ -226,7 +226,7 @@ export async function getAllPostSlugs(): Promise<string[]> {
       filter: {
         property: 'Status',
         status: {
-          equals: '발행됨',
+          equals: 'Published',
         },
       },
     })
@@ -294,9 +294,12 @@ function convertNotionPageToBlogPost(page: PageObjectResponse): Post {
   const getStatus = () => {
     const statusProp = properties.Status
     if (statusProp?.type === 'status') {
-      return (statusProp.status?.name as '초안' | '발행됨') || '초안'
+      return (
+        (statusProp.status?.name as 'Draft' | 'Published' | 'Archived') ||
+        'Draft'
+      )
     }
-    return '초안'
+    return 'Draft'
   }
 
   const getSlug = (title: string) => {

@@ -11,7 +11,7 @@ interface Post {
   slug: string
   thumbnail?: string
   summary?: string
-  status: '초안' | '발행됨'
+  status: 'Draft' | 'Published' | 'Archived'
   createdAt: string
   updatedAt: string
 }
