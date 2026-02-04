@@ -11,6 +11,9 @@ interface Post {
   slug: string
   thumbnail?: string
   summary?: string
+  status: '초안' | '발행됨'
+  createdAt: string
+  updatedAt: string
 }
 
 interface PostContent extends Post {

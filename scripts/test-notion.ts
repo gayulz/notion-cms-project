@@ -20,7 +20,7 @@ async function testNotionConnection() {
       database_id: env.NOTION_DATABASE_ID,
       filter: {
         property: 'Status',
-        select: {
+        status: {
           equals: '발행됨', // 'Published' 상태의 게시물만 가져오도록 필터링
         },
       },
@@ -44,8 +44,8 @@ async function testNotionConnection() {
       const properties = page.properties
       const title = properties.Title?.title[0]?.plain_text || '제목 없음'
       const category = properties.Category?.select?.name || '카테고리 없음'
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tags =
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         properties.Tags?.multi_select.map((tag: any) => tag.name) || []
       const published = properties.Published?.date?.start || '날짜 없음'
       const slug = properties.Slug?.rich_text[0]?.plain_text || '슬러그 없음'
@@ -64,6 +64,10 @@ async function testNotionConnection() {
         slug,
         thumbnail,
         summary,
+        status:
+          (properties.Status?.select?.name as '초안' | '발행됨') || '초안',
+        createdAt: page.created_time,
+        updatedAt: page.last_edited_time,
       }
     })
 

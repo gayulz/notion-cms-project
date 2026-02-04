@@ -4,9 +4,10 @@
  * @since 2026-01-17
  */
 
+import type { Post, PostContent } from '@/types/notion'
 import { Client } from '@notionhq/client'
+import type { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints'
 import { NotionToMarkdown } from 'notion-to-md'
-import type { BlogPost, NotionPage } from '@/types/notion'
 
 // 환경 변수 가져오기
 const getNotionConfig = () => {
@@ -70,7 +71,7 @@ export async function getMarkdownContent(
  * 발행된 블로그 글 목록 가져오기
  * @returns 발행된 블로그 글 배열
  */
-export async function getPosts(): Promise<BlogPost[]> {
+export async function getPosts(): Promise<Post[]> {
   try {
     const notion = getNotionClient()
     const { NOTION_DATABASE_ID } = getNotionConfig()
@@ -78,8 +79,8 @@ export async function getPosts(): Promise<BlogPost[]> {
       database_id: NOTION_DATABASE_ID,
       filter: {
         property: 'Status',
-        select: {
-          equals: 'Published',
+        status: {
+          equals: '발행됨',
         },
       },
       sorts: [
@@ -91,7 +92,7 @@ export async function getPosts(): Promise<BlogPost[]> {
     })
 
     return response.results.map(page =>
-      convertNotionPageToBlogPost(page as NotionPage)
+      convertNotionPageToBlogPost(page as PageObjectResponse)
     )
   } catch (error) {
     console.error('Notion API 오류:', error)
@@ -106,9 +107,7 @@ export async function getPosts(): Promise<BlogPost[]> {
  * @param category - 글 카테고리
  * @returns 특정 카테고리에 속하는 발행된 블로그 글 배열
  */
-export async function getPostsByCategory(
-  category: string
-): Promise<BlogPost[]> {
+export async function getPostsByCategory(category: string): Promise<Post[]> {
   try {
     const notion = getNotionClient()
     const { NOTION_DATABASE_ID } = getNotionConfig()
@@ -118,8 +117,8 @@ export async function getPostsByCategory(
         and: [
           {
             property: 'Status',
-            select: {
-              equals: 'Published',
+            status: {
+              equals: '발행됨',
             },
           },
           {
@@ -139,7 +138,7 @@ export async function getPostsByCategory(
     })
 
     return response.results.map(page =>
-      convertNotionPageToBlogPost(page as NotionPage)
+      convertNotionPageToBlogPost(page as PageObjectResponse)
     )
   } catch (error) {
     console.error(`Notion API 오류 (카테고리: ${category}):`, error)
@@ -154,7 +153,7 @@ export async function getPostsByCategory(
  * @param slug - 글 슬러그
  * @returns 블로그 글 또는 null
  */
-export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
+export async function getPostBySlug(slug: string): Promise<PostContent | null> {
   try {
     const notion = getNotionClient()
     const { NOTION_DATABASE_ID } = getNotionConfig()
@@ -164,8 +163,8 @@ export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
         and: [
           {
             property: 'Status',
-            select: {
-              equals: 'Published',
+            status: {
+              equals: '발행됨',
             },
           },
           {
@@ -182,14 +181,9 @@ export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
       return null
     }
 
-    const page = response.results[0] as NotionPage
-    const post = convertNotionPageToBlogPost(page)
-
-    // [MIGRATION_OLD] 본문 콘텐츠 가져오기
-    // [MIGRATION_OLD] const mdBlocks = await n2m.pageToMarkdown(page.id);
-    // [MIGRATION_OLD] const mdString = n2m.toMarkdownString(mdBlocks);
-    // [MIGRATION_OLD] post.content = mdString.parent;
-    post.content = await getMarkdownContent(page.id)
+    const page = response.results[0] as PageObjectResponse
+    const post = convertNotionPageToBlogPost(page) as PostContent
+    post.content = (await getMarkdownContent(page.id)) || ''
 
     return post
   } catch (error) {
@@ -203,17 +197,14 @@ export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
  * @param id - 글 ID
  * @returns 블로그 글 또는 null
  */
-export async function getPostById(id: string): Promise<BlogPost | null> {
+export async function getPostById(id: string): Promise<PostContent | null> {
   try {
     const notion = getNotionClient()
     const page = await notion.pages.retrieve({ page_id: id })
-    const post = convertNotionPageToBlogPost(page as unknown as NotionPage)
-
-    // [MIGRATION_OLD] 본문 콘텐츠 가져오기
-    // [MIGRATION_OLD] const mdBlocks = await n2m.pageToMarkdown(id);
-    // [MIGRATION_OLD] const mdString = n2m.toMarkdownString(mdBlocks);
-    // [MIGRATION_OLD] post.content = mdString.parent;
-    post.content = await getMarkdownContent(id)
+    const post = convertNotionPageToBlogPost(
+      page as unknown as PageObjectResponse
+    ) as PostContent
+    post.content = (await getMarkdownContent(id)) || ''
 
     return post
   } catch (error) {
@@ -234,7 +225,7 @@ export async function getAllPostSlugs(): Promise<string[]> {
       database_id: NOTION_DATABASE_ID,
       filter: {
         property: 'Status',
-        select: {
+        status: {
           equals: '발행됨',
         },
       },
@@ -242,9 +233,13 @@ export async function getAllPostSlugs(): Promise<string[]> {
 
     return response.results
       .map(page => {
-        const notionPage = page as NotionPage
+        const notionPage = page as PageObjectResponse
         const slugProperty = notionPage.properties.Slug
-        if (slugProperty && slugProperty.rich_text.length > 0) {
+        if (
+          slugProperty &&
+          slugProperty.type === 'rich_text' &&
+          slugProperty.rich_text.length > 0
+        ) {
           return slugProperty.rich_text[0].plain_text
         }
         return null
@@ -261,46 +256,80 @@ export async function getAllPostSlugs(): Promise<string[]> {
  * @param page - Notion 페이지 객체
  * @returns BlogPost 객체
  */
-function convertNotionPageToBlogPost(page: NotionPage): BlogPost {
-  const properties = page.properties
+function convertNotionPageToBlogPost(page: PageObjectResponse): Post {
+  const { properties } = page
 
-  // 제목 추출
-  const title = properties.Title?.title[0]?.plain_text || '제목 없음'
+  const getTitle = () => {
+    const titleProp = properties.Title
+    if (titleProp?.type === 'title') {
+      return titleProp.title[0]?.plain_text || '제목 없음'
+    }
+    return '제목 없음'
+  }
 
-  // 카테고리 추출
-  const category = properties.Category?.select?.name || '미분류'
+  const getCategory = () => {
+    const categoryProp = properties.Category
+    if (categoryProp?.type === 'select') {
+      return categoryProp.select?.name || '미분류'
+    }
+    return '미분류'
+  }
 
-  // 태그 추출
-  const tags = properties.Tags?.multi_select.map(tag => tag.name) || []
+  const getTags = () => {
+    const tagsProp = properties.Tags
+    if (tagsProp?.type === 'multi_select') {
+      return tagsProp.multi_select.map(tag => tag.name)
+    }
+    return []
+  }
 
-  // 발행일 추출
-  const published =
-    properties.Published?.date?.start || new Date().toISOString()
+  const getPublishedDate = () => {
+    const publishedProp = properties.Published
+    if (publishedProp?.type === 'date') {
+      return publishedProp.date?.start || new Date().toISOString()
+    }
+    return new Date().toISOString()
+  }
 
-  // 상태 추출
-  const status =
-    (properties.Status?.select?.name as '초안' | '발행됨') || '초안'
+  const getStatus = () => {
+    const statusProp = properties.Status
+    if (statusProp?.type === 'status') {
+      return (statusProp.status?.name as '초안' | '발행됨') || '초안'
+    }
+    return '초안'
+  }
 
-  // 슬러그 추출 (없으면 제목을 kebab-case로 변환)
-  const slug =
-    properties.Slug?.rich_text[0]?.plain_text ||
-    title
+  const getSlug = (title: string) => {
+    const slugProp = properties.Slug
+    if (slugProp?.type === 'rich_text' && slugProp.rich_text[0]?.plain_text) {
+      return slugProp.rich_text[0].plain_text
+    }
+    return title
       .toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
+  }
 
-  // 요약 추출
-  const summary = properties.Summary?.rich_text[0]?.plain_text || ''
+  const getSummary = () => {
+    const summaryProp = properties.Summary
+    if (summaryProp?.type === 'rich_text') {
+      return summaryProp.rich_text[0]?.plain_text || ''
+    }
+    return ''
+  }
+
+  const title = getTitle()
+  const slug = getSlug(title)
 
   return {
     id: page.id,
     title,
-    category,
-    tags,
-    published,
-    status,
+    category: getCategory(),
+    tags: getTags(),
+    published: getPublishedDate(),
+    status: getStatus(),
     slug,
-    summary,
+    summary: getSummary(),
     createdAt: page.created_time,
     updatedAt: page.last_edited_time,
   }
